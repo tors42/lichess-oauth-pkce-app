@@ -216,7 +216,8 @@ public class LichessPKCE {
                     var state = inparams.get("state");
 
                     if (! state.equals(requestParams.get("state"))) {
-                        throw new RuntimeException("The \"state\" parameter we sent and the one we recieved didn't match!");
+                        cf.completeExceptionally(new Exception("The \"state\" parameter we sent and the one we recieved didn't match!"));
+                        return;
                     }
 
                     if (code == null) {
