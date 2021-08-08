@@ -52,7 +52,7 @@ public class LichessPKCE {
         // and then the parameters are thrown away, not to be re-used.
         // I.e, next login request will have new parameters generated.
 
-        // Setup a local bind address which we will use in redirect_url
+        // Setup a local bind address which we will use in redirect_uri
         var local = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
         var httpServer = HttpServer.create(local, 0);
         var redirectHost = local.getAddress().getHostAddress();
@@ -83,9 +83,9 @@ public class LichessPKCE {
             .collect(Collectors.joining("&"));
 
         // Front Channel URL, all these parameters are non-sensitive.
-        // The actual authentication between User and Lichess happens outside of this demo application,");
-        // i.e in the browser over HTTPS.");
-        var frontChannelUrl = URI.create(lichessUri +"/oauth" + "?" + paramString);
+        // The actual authentication between User and Lichess happens outside of this demo application,
+        // i.e in the browser over HTTPS.
+        var frontChannelUrl = URI.create(lichessUri + "/oauth" + "?" + paramString);
 
         // Prepare for handling the upcoming redirect,
         // after User has authenticated with Lichess,
