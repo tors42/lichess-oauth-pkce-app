@@ -64,7 +64,7 @@ public class LichessPKCE {
         var code_challenge = generateCodeChallenge(code_verifier);
         var response_type = "code";
         var client_id = "apptest";
-        var redirect_uri = "http://" + redirectHost + ":" + redirectPort;
+        var redirect_uri = "http://" + redirectHost + ":" + redirectPort + "/";
         var scope = "email:read";
         var state = generateRandomState();
 
