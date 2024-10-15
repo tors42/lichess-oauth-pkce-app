@@ -5,6 +5,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -30,19 +31,18 @@ public class LichessPKCE {
      * Lichess user - and if granted - the e-mail address
      * will be fetched and printed on standard output.
      */
-    public static void main(String... args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
         // Perform the OAuth2 PKCE flow
-        var access_token = login();
+        String access_token = login();
 
         // Fetch the e-mail address
-        var email = readEmail(access_token);
+        String email = readEmail(access_token);
 
         System.out.println("e-mail: " + email);
 
         // Logout
         logout(access_token);
-
     }
 
     static String login() throws Exception {
@@ -53,22 +53,22 @@ public class LichessPKCE {
         // I.e, next login request will have new parameters generated.
 
         // Setup a local bind address which we will use in redirect_uri
-        var local = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
-        var httpServer = HttpServer.create(local, 0);
-        var redirectHost = local.getAddress().getHostAddress();
-        var redirectPort = httpServer.getAddress().getPort();
+        InetSocketAddress local = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
+        HttpServer httpServer = HttpServer.create(local, 0);
+        String redirectHost = local.getAddress().getHostAddress();
+        int redirectPort = httpServer.getAddress().getPort();
 
-        var code_verifier = generateRandomCodeVerifier();
+        String code_verifier = generateRandomCodeVerifier();
 
-        var code_challenge_method = "S256";
-        var code_challenge = generateCodeChallenge(code_verifier);
-        var response_type = "code";
-        var client_id = "apptest";
-        var redirect_uri = "http://" + redirectHost + ":" + redirectPort + "/";
-        var scope = "email:read";
-        var state = generateRandomState();
+        String code_challenge_method = "S256";
+        String code_challenge = generateCodeChallenge(code_verifier);
+        String response_type = "code";
+        String client_id = "apptest";
+        String redirect_uri = "http://" + redirectHost + ":" + redirectPort + "/";
+        String scope = "email:read";
+        String state = generateRandomState();
 
-        var parameters = Map.of(
+        Map<String,String> parameters = Map.of(
                 "code_challenge_method", code_challenge_method,
                 "code_challenge", code_challenge,
                 "response_type", response_type,
@@ -78,14 +78,14 @@ public class LichessPKCE {
                 "state", state
                 );
 
-        var paramString = parameters.entrySet().stream()
+        String paramString = parameters.entrySet().stream()
             .map(kv -> kv.getKey() + "=" + kv.getValue())
             .collect(Collectors.joining("&"));
 
         // Front Channel URL, all these parameters are non-sensitive.
         // The actual authentication between User and Lichess happens outside of this demo application,
         // i.e in the browser over HTTPS.
-        var frontChannelUrl = URI.create(lichessUri + "/oauth" + "?" + paramString);
+        URI frontChannelUrl = URI.create(lichessUri + "/oauth" + "?" + paramString);
 
         // Prepare for handling the upcoming redirect,
         // after User has authenticated with Lichess,
@@ -94,12 +94,12 @@ public class LichessPKCE {
         // The random code_verifier we generated for this single login,
         // will be sent to Lichess on a "Back Channel" so they can verify that
         // the Front Channel request really came from us.
-        var cf = registerRedirectHandler(httpServer, parameters, code_verifier);
+        CompletableFuture<String> cf = registerRedirectHandler(httpServer, parameters, code_verifier);
 
         // Now we let the User authorize with Lichess,
         // using their browser
         if (Desktop.isDesktopSupported()) {
-            var desktop = Desktop.getDesktop();
+            Desktop desktop = Desktop.getDesktop();
             if (desktop.isSupported(Desktop.Action.BROWSE)) {
                 desktop.browse(frontChannelUrl);
             } else {
@@ -117,7 +117,7 @@ public class LichessPKCE {
 
         // Blocking until user has authorized,
         // and we've exchanged the incoming authorization code for an access token
-        var access_token = cf.get();
+        String access_token = cf.get();
 
         httpServer.stop(0);
 
@@ -127,16 +127,16 @@ public class LichessPKCE {
     static String readEmail(String access_token) throws Exception {
 
         // Get that e-mail
-        var emailRequest = HttpRequest.newBuilder(URI.create(lichessUri + "/api/account/email"))
+        HttpRequest emailRequest = HttpRequest.newBuilder(URI.create(lichessUri + "/api/account/email"))
             .GET()
             .header("authorization", "Bearer " + access_token)
             .header("accept", "application/json")
             .build();
 
-        var response = HttpClient.newHttpClient().send(emailRequest, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var body = response.body();
-        var email = parseField("email", body);
+        HttpResponse<String> response = HttpClient.newHttpClient().send(emailRequest, BodyHandlers.ofString());
+        int statusCode = response.statusCode();
+        String body = response.body();
+        String email = parseField("email", body);
         if (statusCode != 200) {
             System.out.println("/api/account/email - " + statusCode);
         }
@@ -145,27 +145,27 @@ public class LichessPKCE {
     }
 
     static void logout(String access_token) throws Exception {
-        var logoutRequest = HttpRequest.newBuilder(URI.create(lichessUri + "/api/token"))
+        HttpRequest logoutRequest = HttpRequest.newBuilder(URI.create(lichessUri + "/api/token"))
             .DELETE()
             .header("authorization", "Bearer " + access_token)
             .build();
 
-        var response = HttpClient.newHttpClient().send(logoutRequest, BodyHandlers.discarding());
-        var statusCode = response.statusCode();
+        HttpResponse<Void> response = HttpClient.newHttpClient().send(logoutRequest, BodyHandlers.discarding());
+        int statusCode = response.statusCode();
         if (statusCode != 204) {
             System.out.println("/api/token - " + response.statusCode());
         }
     }
 
     static String generateRandomCodeVerifier() {
-        var bytes = new byte[32];
+        byte[] bytes = new byte[32];
         new Random().nextBytes(bytes);
-        var code_verifier = encodeToString(bytes);
+        String code_verifier = encodeToString(bytes);
         return code_verifier;
     }
 
     static String generateCodeChallenge(String code_verifier) {
-        var asciiBytes = code_verifier.getBytes(StandardCharsets.US_ASCII);
+        byte[] asciiBytes = code_verifier.getBytes(StandardCharsets.US_ASCII);
         MessageDigest md;
 
         try {
@@ -174,14 +174,14 @@ public class LichessPKCE {
             throw new RuntimeException(nsa_ehhh);
         }
 
-        var s256bytes = md.digest(asciiBytes);
+        byte[] s256bytes = md.digest(asciiBytes);
 
-        var code_challenge = encodeToString(s256bytes);
+        String code_challenge = encodeToString(s256bytes);
         return code_challenge;
     }
 
     static String generateRandomState() {
-        var bytes = new byte[16];
+        byte[] bytes = new byte[16];
         new Random().nextBytes(bytes);
         // Not sure how long the parameter "should" be,
         // going for 8 characters here...
@@ -196,24 +196,24 @@ public class LichessPKCE {
     }
 
     static CompletableFuture<String> registerRedirectHandler(HttpServer httpServer, Map<String, String> requestParams, String code_verifier) {
-        var cf = new CompletableFuture<String>();
+        CompletableFuture<String> cf = new CompletableFuture<String>();
         httpServer.createContext("/",
                 (exchange) -> {
                     httpServer.removeContext("/");
 
                     // The redirect arrives...
-                    var query = exchange
+                    String query = exchange
                         .getRequestURI()
                         .getQuery();
 
-                    var inparams = Arrays.stream(query.split("&"))
+                    Map<String,String> inparams = Arrays.stream(query.split("&"))
                         .collect(Collectors.toMap(
                                     s -> s.split("=")[0],
                                     s -> s.split("=")[1]
                                     ));
 
-                    var code = inparams.get("code");
-                    var state = inparams.get("state");
+                    String code = inparams.get("code");
+                    String state = inparams.get("state");
 
                     if (! state.equals(requestParams.get("state"))) {
                         cf.completeExceptionally(new Exception("The \"state\" parameter we sent and the one we recieved didn't match!"));
@@ -230,14 +230,14 @@ public class LichessPKCE {
                     // about the fact that the User has authorized us - yay!
 
                     // Let's respond with a nice HTML page in celebration.
-                    var responseBytes = "<html><body><h1>Success, you may close this page</h1></body></html>".getBytes();
+                    byte[] responseBytes = "<html><body><h1>Success, you may close this page</h1></body></html>".getBytes();
                     exchange.sendResponseHeaders(200, responseBytes.length);
                     exchange.getResponseBody().write(responseBytes);
 
 
                     // Now,
                     // let's go to Lichess and ask for a token - using the meta data we've received
-                    var tokenParameters = Map.of(
+                    Map<String,String> tokenParameters = Map.of(
                             "code_verifier", code_verifier,
                             "grant_type", "authorization_code",
                             "code", code,
@@ -245,24 +245,24 @@ public class LichessPKCE {
                             "client_id", requestParams.get("client_id")
                             );
 
-                    var tokenParamsString = tokenParameters.entrySet().stream()
+                    String tokenParamsString = tokenParameters.entrySet().stream()
                         .map(kv -> kv.getKey() + "=" + kv.getValue())
                         .collect(Collectors.joining("&"));
 
-                    var tokenRequest = HttpRequest.newBuilder(URI.create(lichessUri + "/api/token"))
+                    HttpRequest tokenRequest = HttpRequest.newBuilder(URI.create(lichessUri + "/api/token"))
                         .POST(BodyPublishers.ofString(tokenParamsString))
                         .header("content-type", "application/x-www-form-urlencoded")
                         .build();
 
                     try {
-                        var response = HttpClient.newHttpClient().send(tokenRequest, BodyHandlers.ofString());
-                        var statusCode = response.statusCode();
-                        var body = response.body();
+                        HttpResponse<String> response = HttpClient.newHttpClient().send(tokenRequest, BodyHandlers.ofString());
+                        int statusCode = response.statusCode();
+                        String body = response.body();
 
                         if (statusCode != 200) {
                             System.out.println("/api/token - " + statusCode);
                         }
-                        var access_token = parseField("access_token", body);
+                        String access_token = parseField("access_token", body);
 
                         if (access_token == null) {
                             System.out.println("Body: " + body);
@@ -287,7 +287,7 @@ public class LichessPKCE {
         try {
             int start = body.indexOf(field) + field.length() + 3;
             int stop = body.indexOf("\"", start);
-            var field_value = body.substring(start, stop);
+            String field_value = body.substring(start, stop);
             return field_value;
         } catch (Exception e){
             return null;
