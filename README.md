@@ -10,9 +10,9 @@ This flow can be used to implement applications wanting to use authenticated end
 Make sure to use at least Java 11,
 
     $ java -version
-    openjdk version "11.0.11" 2021-04-20
-    OpenJDK Runtime Environment AdoptOpenJDK-11.0.11+9 (build 11.0.11+9)
-    OpenJDK 64-Bit Server VM AdoptOpenJDK-11.0.11+9 (build 11.0.11+9, mixed mode)
+    openjdk version "11.0.24" 2024-07-16
+    OpenJDK Runtime Environment Temurin-11.0.24+8 (build 11.0.24+8)
+    OpenJDK 64-Bit Server VM Temurin-11.0.24+8 (build 11.0.24+8, mixed mode)
 
 Run with following command
 
